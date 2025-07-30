@@ -116,26 +116,28 @@ class SpotiPiEnhanced:
     
     def _enhance_colors(self, img_array):
         """Enhance colors for better matrix display."""
-        # Convert to float for processing
-        img_float = img_array.astype(np.float32) / 255.0
-        
-        # Apply gamma correction for better color reproduction
-        gamma = 0.7  # More aggressive gamma correction
-        img_float = np.power(img_float, gamma)
-        
-        # Increase saturation more aggressively
-        # Convert to HSV
-        hsv = self._rgb_to_hsv(img_float)
-        hsv[:, :, 1] = np.clip(hsv[:, :, 1] * 1.8, 0, 1)  # Increase saturation more
-        img_float = self._hsv_to_rgb(hsv)
-        
-        # Add a subtle glow effect
-        img_float = self._add_glow_effect(img_float)
-        
-        # Convert back to uint8
-        img_array = np.clip(img_float * 255, 0, 255).astype(np.uint8)
-        
-        return img_array
+        try:
+            # Convert to float for processing
+            img_float = img_array.astype(np.float32) / 255.0
+            
+            # Apply gamma correction for better color reproduction
+            gamma = 0.7  # More aggressive gamma correction
+            img_float = np.power(img_float, gamma)
+            
+            # Simple brightness and contrast enhancement
+            img_float = img_float * 1.3  # Increase brightness
+            img_float = (img_float - 0.5) * 1.2 + 0.5  # Increase contrast
+            
+            # Clip to valid range
+            img_float = np.clip(img_float, 0, 1)
+            
+            # Convert back to uint8
+            img_array = (img_float * 255).astype(np.uint8)
+            
+            return img_array
+        except Exception as e:
+            print(f"Color enhancement failed: {e}")
+            return img_array
     
     def _rgb_to_hsv(self, rgb):
         """Convert RGB to HSV."""
@@ -209,15 +211,19 @@ class SpotiPiEnhanced:
         return np.stack([r, g, b], axis=2)
     
     def _add_glow_effect(self, img_float):
-        """Add a subtle glow effect to the image."""
-        # Create a blurred version for glow
-        from scipy.ndimage import gaussian_filter
+        """Add a simple glow effect to the image."""
+        # Simple glow effect without scipy
+        # Create a simple blur by averaging neighboring pixels
+        h, w, c = img_float.shape
+        glow = np.zeros_like(img_float)
         
-        # Apply gaussian blur to create glow
-        glow = gaussian_filter(img_float, sigma=1.0)
+        for y in range(1, h-1):
+            for x in range(1, w-1):
+                # Average 3x3 neighborhood
+                glow[y, x] = np.mean(img_float[y-1:y+2, x-1:x+2], axis=(0, 1))
         
         # Blend original with glow
-        glow_strength = 0.3
+        glow_strength = 0.2
         img_float = img_float * (1 - glow_strength) + glow * glow_strength
         
         # Ensure values stay in range
