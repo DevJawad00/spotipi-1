@@ -141,7 +141,7 @@ class SpotiPiPixelated:
                 
                 if track_info:
                     # Check if track has changed
-                    if self.spotify_client.has_track_changed(track_info):
+                    if isinstance(track_info, dict) and self.spotify_client.has_track_changed(track_info):
                         self._handle_track_change(track_info)
                     else:
                         # Track is still playing, just wait
@@ -161,10 +161,18 @@ class SpotiPiPixelated:
     
     def _handle_track_change(self, track_info):
         """Handle when a track changes."""
-        track_id = track_info.get('id')
-        track_name = track_info.get('name', 'Unknown')
-        artist_name = track_info.get('artists', [{}])[0].get('name', 'Unknown')
-        album_art_url = track_info.get('album', {}).get('images', [{}])[0].get('url')
+        # Handle different track_info formats
+        if isinstance(track_info, str):
+            print(f"🎵 Track info: {track_info}")
+            return
+            
+        track_id = track_info.get('id') if track_info else None
+        track_name = track_info.get('name', 'Unknown') if track_info else 'Unknown'
+        artists = track_info.get('artists', [{}]) if track_info else [{}]
+        artist_name = artists[0].get('name', 'Unknown') if artists else 'Unknown'
+        album = track_info.get('album', {}) if track_info else {}
+        images = album.get('images', [{}]) if album else [{}]
+        album_art_url = images[0].get('url') if images else None
         
         print(f"🎵 Now playing: {track_name} by {artist_name}")
         
