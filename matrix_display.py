@@ -20,12 +20,16 @@ class MatrixDisplay:
             options.cols = config.MATRIX_WIDTH
             options.chain_length = 1
             options.parallel = 1
-            options.hardware_mapping = "regular"  # Use regular mapping since adafruit-hat doesn't work
+            options.hardware_mapping = "regular"  # Use regular mapping
             
             # Brightness and performance settings
             options.brightness = config.MATRIX_BRIGHTNESS
             options.limit_refresh_rate_hz = 200
             options.drop_privileges = False
+            
+            # Additional settings to prevent row skipping
+            options.scan_mode = 0  # Progressive scan mode
+            options.multiplexing = 0  # No multiplexing
             
             # Create matrix instance
             self.matrix = RGBMatrix(options=options)
@@ -44,13 +48,26 @@ class MatrixDisplay:
             return
         
         try:
-            # Convert numpy array to matrix format
+            # Ensure image array is the correct shape and type
+            if image_array.shape != (64, 64, 3):
+                print(f"Warning: Image shape is {image_array.shape}, expected (64, 64, 3)")
+                return
+            
+            # Convert to uint8 if needed
+            if image_array.dtype != np.uint8:
+                image_array = image_array.astype(np.uint8)
+            
+            # Create canvas
             canvas = self.matrix.CreateFrameCanvas()
             
-            # Set pixels on canvas
+            # Set pixels on canvas - ensure proper addressing
             for y in range(image_array.shape[0]):
                 for x in range(image_array.shape[1]):
                     r, g, b = image_array[y, x]
+                    # Ensure pixel values are in valid range
+                    r = max(0, min(255, int(r)))
+                    g = max(0, min(255, int(g)))
+                    b = max(0, min(255, int(b)))
                     canvas.SetPixel(x, y, r, g, b)
             
             # Display the image

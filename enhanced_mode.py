@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-SpotiPi Enhanced Mode
+SpotiPi Enhanced Mode - Fixed Version
 
-This displays album art with basic enhancements for better appearance.
+This displays album art with proper matrix addressing to prevent row skipping.
 """
 
 import time
@@ -28,6 +28,7 @@ class SpotiPiEnhanced:
         self.image_processor = None
         self.matrix_display = None
         self.current_track_id = None
+        self.last_update_time = 0
         
         # Setup signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -66,7 +67,7 @@ class SpotiPiEnhanced:
         """Create an enhanced version of the album art."""
         try:
             # Download the image
-            response = requests.get(image_url)
+            response = requests.get(image_url, timeout=10)
             response.raise_for_status()
             
             # Open with PIL
@@ -79,11 +80,20 @@ class SpotiPiEnhanced:
             # Apply basic enhancements
             img = self._enhance_image(img)
             
-            # Resize to 64x64
-            img = img.resize((64, 64), Image.LANCZOS)
+            # Resize to 64x64 using proper resampling
+            img = img.resize((64, 64), Image.Resampling.LANCZOS)
             
-            # Convert to numpy array
-            img_array = np.array(img)
+            # Convert to numpy array and ensure proper format
+            img_array = np.array(img, dtype=np.uint8)
+            
+            # Ensure the array has the correct shape
+            if img_array.shape != (64, 64, 3):
+                print(f"Warning: Image shape is {img_array.shape}, expected (64, 64, 3)")
+                # Create a properly sized array
+                corrected_array = np.zeros((64, 64, 3), dtype=np.uint8)
+                h, w = min(64, img_array.shape[0]), min(64, img_array.shape[1])
+                corrected_array[:h, :w] = img_array[:h, :w]
+                img_array = corrected_array
             
             return img_array
             
@@ -93,30 +103,55 @@ class SpotiPiEnhanced:
     
     def _enhance_image(self, img):
         """Apply basic image enhancements."""
-        # Increase contrast
-        enhancer = ImageEnhance.Contrast(img)
-        img = enhancer.enhance(1.2)
-        
-        # Increase saturation
-        enhancer = ImageEnhance.Color(img)
-        img = enhancer.enhance(1.3)
-        
-        # Increase brightness slightly
-        enhancer = ImageEnhance.Brightness(img)
-        img = enhancer.enhance(1.1)
-        
-        return img
+        try:
+            # Increase contrast moderately
+            enhancer = ImageEnhance.Contrast(img)
+            img = enhancer.enhance(1.1)
+            
+            # Increase saturation moderately
+            enhancer = ImageEnhance.Color(img)
+            img = enhancer.enhance(1.2)
+            
+            # Increase brightness slightly
+            enhancer = ImageEnhance.Brightness(img)
+            img = enhancer.enhance(1.05)
+            
+            return img
+        except Exception as e:
+            print(f"Image enhancement failed: {e}")
+            return img
     
     def _create_placeholder_image(self):
         """Create a placeholder image when album art fails to load."""
         image = np.zeros((64, 64, 3), dtype=np.uint8)
         
-        # Create a simple gradient pattern
+        # Create a simple, clean pattern
         for y in range(64):
             for x in range(64):
-                r = int(128 + 127 * (x / 64))
-                g = int(128 + 127 * (y / 64))
-                b = int(128 + 127 * ((x + y) / 128))
+                # Create a subtle gradient
+                r = int(64 + 64 * (x / 64))
+                g = int(64 + 64 * (y / 64))
+                b = int(128 + 64 * ((x + y) / 128))
+                image[y, x] = [r, g, b]
+        
+        return image
+    
+    def _create_idle_pattern(self):
+        """Create a simple idle pattern."""
+        image = np.zeros((64, 64, 3), dtype=np.uint8)
+        current_time = time.time()
+        
+        for y in range(64):
+            for x in range(64):
+                # Simple wave pattern
+                wave = np.sin(x * 0.1 + current_time * 0.5) * np.cos(y * 0.1 + current_time * 0.3)
+                intensity = int(64 + 64 * wave)
+                
+                # Blue-tinted pattern
+                r = int(intensity * 0.3)
+                g = int(intensity * 0.5)
+                b = int(intensity)
+                
                 image[y, x] = [r, g, b]
         
         return image
@@ -131,8 +166,14 @@ class SpotiPiEnhanced:
         print("📺 Monitoring Spotify playback...")
         print()
         
+        # Display initial idle pattern
+        idle_image = self._create_idle_pattern()
+        self.matrix_display.display_image(idle_image, 0.1)
+        
         while self.running:
             try:
+                current_time = time.time()
+                
                 # Get current track info
                 track_info = self.spotify_client.get_current_track()
                 
@@ -141,12 +182,18 @@ class SpotiPiEnhanced:
                     if isinstance(track_info, dict) and self.spotify_client.has_track_changed(track_info):
                         self._handle_track_change(track_info)
                     else:
-                        # Track is still playing, just wait
-                        time.sleep(5)
+                        # Track is still playing, update idle pattern occasionally
+                        if current_time - self.last_update_time > 2.0:
+                            idle_image = self._create_idle_pattern()
+                            self.matrix_display.display_image(idle_image, 0.1)
+                            self.last_update_time = current_time
+                        time.sleep(1)
                 else:
                     # No track playing, show idle state
-                    self._handle_no_track()
-                    time.sleep(5)
+                    if current_time - self.last_update_time > 2.0:
+                        self._handle_no_track()
+                        self.last_update_time = current_time
+                    time.sleep(1)
                     
             except KeyboardInterrupt:
                 break
@@ -158,45 +205,43 @@ class SpotiPiEnhanced:
     
     def _handle_track_change(self, track_info):
         """Handle when a track changes."""
-        track_id = track_info.get('id') if track_info else None
-        track_name = track_info.get('name', 'Unknown') if track_info else 'Unknown'
-        artist_name = track_info.get('artist', 'Unknown') if track_info else 'Unknown'
-        album_art_url = track_info.get('album_art_url') if track_info else None
-        
-        print(f"🎵 Now playing: {track_name} by {artist_name}")
-        
-        if album_art_url:
-            print("🖼️  Creating enhanced album art...")
-            enhanced_image = self.create_enhanced_image(album_art_url)
-            self.matrix_display.display_image(enhanced_image, 0.1)
-            print("✅ Enhanced album art displayed!")
-        else:
-            print("⚠️  No album art available")
+        try:
+            track_id = track_info.get('id') if track_info else None
+            track_name = track_info.get('name', 'Unknown') if track_info else 'Unknown'
+            artist_name = track_info.get('artist', 'Unknown') if track_info else 'Unknown'
+            album_art_url = track_info.get('album_art_url') if track_info else None
+            
+            print(f"🎵 Now playing: {track_name} by {artist_name}")
+            
+            if album_art_url:
+                print("🖼️  Creating enhanced album art...")
+                enhanced_image = self.create_enhanced_image(album_art_url)
+                
+                # Verify image before displaying
+                if enhanced_image is not None and enhanced_image.shape == (64, 64, 3):
+                    self.matrix_display.display_image(enhanced_image, 0.1)
+                    print("✅ Enhanced album art displayed!")
+                else:
+                    print("⚠️  Invalid image format, showing placeholder")
+                    placeholder = self._create_placeholder_image()
+                    self.matrix_display.display_image(placeholder, 0.1)
+            else:
+                print("⚠️  No album art available")
+                placeholder = self._create_placeholder_image()
+                self.matrix_display.display_image(placeholder, 0.1)
+            
+            self.current_track_id = track_id
+            self.last_update_time = time.time()
+            
+        except Exception as e:
+            print(f"❌ Error handling track change: {e}")
             placeholder = self._create_placeholder_image()
             self.matrix_display.display_image(placeholder, 0.1)
-        
-        self.current_track_id = track_id
     
     def _handle_no_track(self):
         """Handle when no track is playing."""
         print("⏸️  No track currently playing")
-        # Show a simple animated pattern
-        idle_image = np.zeros((64, 64, 3), dtype=np.uint8)
-        current_time = time.time()
-        
-        for y in range(64):
-            for x in range(64):
-                # Create a simple wave pattern
-                wave = np.sin(x * 0.2 + current_time) * np.cos(y * 0.2 + current_time)
-                intensity = int(128 + 127 * wave)
-                
-                # Simple color variation
-                r = int(intensity * 0.8)
-                g = int(intensity * 0.6)
-                b = int(intensity)
-                
-                idle_image[y, x] = [r, g, b]
-        
+        idle_image = self._create_idle_pattern()
         self.matrix_display.display_image(idle_image, 0.1)
     
     def stop(self):
@@ -205,15 +250,18 @@ class SpotiPiEnhanced:
         self.running = False
         
         if self.matrix_display:
-            self.matrix_display.clear_display()
+            try:
+                self.matrix_display.clear_display()
+            except Exception as e:
+                print(f"Error clearing display: {e}")
         
         print("✅ SpotiPi Enhanced stopped.")
 
 def main():
     """Main function."""
-    print("🎵 SpotiPi Enhanced Mode")
-    print("=" * 30)
-    print("This will display album art with basic enhancements!")
+    print("🎵 SpotiPi Enhanced Mode - Fixed Version")
+    print("=" * 40)
+    print("This will display album art with proper matrix addressing!")
     print()
     
     app = SpotiPiEnhanced()
