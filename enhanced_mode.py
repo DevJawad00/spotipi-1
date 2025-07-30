@@ -96,21 +96,21 @@ class SpotiPiEnhanced:
     
     def _enhance_image(self, img):
         """Apply image enhancements."""
-        # Increase contrast
+        # Increase contrast more aggressively
         enhancer = ImageEnhance.Contrast(img)
+        img = enhancer.enhance(1.6)
+        
+        # Increase saturation more
+        enhancer = ImageEnhance.Color(img)
+        img = enhancer.enhance(1.8)
+        
+        # Increase brightness more
+        enhancer = ImageEnhance.Brightness(img)
         img = enhancer.enhance(1.3)
         
-        # Increase saturation
-        enhancer = ImageEnhance.Color(img)
-        img = enhancer.enhance(1.4)
-        
-        # Increase brightness slightly
-        enhancer = ImageEnhance.Brightness(img)
-        img = enhancer.enhance(1.1)
-        
-        # Apply sharpening
+        # Apply more sharpening
         enhancer = ImageEnhance.Sharpness(img)
-        img = enhancer.enhance(1.2)
+        img = enhancer.enhance(1.5)
         
         return img
     
@@ -120,14 +120,17 @@ class SpotiPiEnhanced:
         img_float = img_array.astype(np.float32) / 255.0
         
         # Apply gamma correction for better color reproduction
-        gamma = 0.8
+        gamma = 0.7  # More aggressive gamma correction
         img_float = np.power(img_float, gamma)
         
-        # Increase saturation
+        # Increase saturation more aggressively
         # Convert to HSV
         hsv = self._rgb_to_hsv(img_float)
-        hsv[:, :, 1] = np.clip(hsv[:, :, 1] * 1.3, 0, 1)  # Increase saturation
+        hsv[:, :, 1] = np.clip(hsv[:, :, 1] * 1.8, 0, 1)  # Increase saturation more
         img_float = self._hsv_to_rgb(hsv)
+        
+        # Add a subtle glow effect
+        img_float = self._add_glow_effect(img_float)
         
         # Convert back to uint8
         img_array = np.clip(img_float * 255, 0, 255).astype(np.uint8)
@@ -205,6 +208,23 @@ class SpotiPiEnhanced:
         
         return np.stack([r, g, b], axis=2)
     
+    def _add_glow_effect(self, img_float):
+        """Add a subtle glow effect to the image."""
+        # Create a blurred version for glow
+        from scipy.ndimage import gaussian_filter
+        
+        # Apply gaussian blur to create glow
+        glow = gaussian_filter(img_float, sigma=1.0)
+        
+        # Blend original with glow
+        glow_strength = 0.3
+        img_float = img_float * (1 - glow_strength) + glow * glow_strength
+        
+        # Ensure values stay in range
+        img_float = np.clip(img_float, 0, 1)
+        
+        return img_float
+    
     def _create_placeholder_image(self):
         """Create a placeholder image when album art fails to load."""
         image = np.zeros((64, 64, 3), dtype=np.uint8)
@@ -281,14 +301,38 @@ class SpotiPiEnhanced:
     def _handle_no_track(self):
         """Handle when no track is playing."""
         print("⏸️  No track currently playing")
-        # Show a beautiful idle pattern
+        # Show a beautiful animated idle pattern
         idle_image = np.zeros((64, 64, 3), dtype=np.uint8)
+        current_time = time.time()
+        
         for y in range(64):
             for x in range(64):
-                # Create a smooth wave pattern
-                wave = np.sin(x * 0.2 + time.time()) * np.cos(y * 0.2 + time.time())
-                intensity = int(128 + 127 * wave)
-                idle_image[y, x] = [0, intensity, intensity]  # Cyan wave
+                # Create multiple wave patterns for more vibrant effect
+                wave1 = np.sin(x * 0.3 + current_time) * np.cos(y * 0.3 + current_time)
+                wave2 = np.sin(x * 0.1 + current_time * 0.5) * np.cos(y * 0.1 + current_time * 0.5)
+                wave3 = np.sin((x + y) * 0.2 + current_time * 0.3)
+                
+                # Combine waves for more complex pattern
+                combined_wave = (wave1 + wave2 + wave3) / 3
+                intensity = int(128 + 127 * combined_wave)
+                
+                # Create rainbow effect
+                hue = (x + y + current_time * 50) % 360
+                if hue < 60:
+                    r, g, b = 255, intensity * hue // 60, 0
+                elif hue < 120:
+                    r, g, b = 255 - intensity * (hue - 60) // 60, 255, 0
+                elif hue < 180:
+                    r, g, b = 0, 255, intensity * (hue - 120) // 60
+                elif hue < 240:
+                    r, g, b = 0, 255 - intensity * (hue - 180) // 60, 255
+                elif hue < 300:
+                    r, g, b = intensity * (hue - 240) // 60, 0, 255
+                else:
+                    r, g, b = 255, 0, 255 - intensity * (hue - 300) // 60
+                
+                idle_image[y, x] = [r, g, b]
+        
         self.matrix_display.display_image(idle_image, 0.1)
     
     def _display_startup_animation(self):
