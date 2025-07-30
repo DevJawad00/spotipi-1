@@ -1,35 +1,97 @@
-# Spotipi
-### Overview
-This project is to display information on 32x32 led matrix from the Spotify web api.
-### Getting Started
-* Create a new application within the [Spotify developer dashboard](https://developer.spotify.com/dashboard/applications) <br />
-* Edit the settings of the application within the dashboard.
-    * Set the redirect uri to any local url such as http://127.0.0.1/callback
-* First step is to ssh to your raspberry pi to clone the repository
-```
-git clone  https://github.com/ryanwa18/spotipi.git
-```
-* Next go ahead and change into the directory using 
-```
-cd spotipi
-```
-* Run the generate token script and enter the prompted spotify credentials using
-```
-bash generate-token.sh
-```
-* This will generate a file named `.cache` which will be used for authentication
-    * A url will show up in the terminal window and you must copy this into your own web broswer
-    * The url will redirect you to another url and you need to copy/paste this in the terminal when prompted.
-   
-* Install the software: <br />
-```
-cd spotipi
-sudo bash setup.sh
-```
-* Edit settings on the web app: <br />
-```
-navigate to http://<raspberrypi_hostname or ip_address> within a web browser
+# SpotiPi - Spotify Album Art Display
+
+A Raspberry Pi project that displays the currently playing Spotify album cover art on a 64x64 RGB LED matrix.
+
+## Features
+
+- Real-time Spotify track monitoring
+- Album cover art display on 64x64 RGB matrix
+- Automatic image scaling and optimization
+- Smooth transitions between tracks
+- Background service for continuous operation
+
+## Hardware Requirements
+
+- Raspberry Pi (3B+ or 4 recommended)
+- 64x64 RGB LED Matrix
+- RGB Matrix HAT or compatible controller
+- Power supply for the matrix
+
+## Software Requirements
+
+- Python 3.7+
+- Spotify Developer Account
+- Required Python packages (see requirements.txt)
+
+## Setup Instructions
+
+### 1. Install Dependencies
+
+```bash
+pip install -r requirements.txt
 ```
 
-### Final Product
-![](https://i.redd.it/8s1cxqo5jfk51.jpg)
+### 2. Spotify API Setup
+
+1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+2. Create a new application
+3. Get your Client ID and Client Secret
+4. Add your redirect URI (e.g., `http://localhost:8888/callback`)
+
+### 3. Configuration
+
+1. Copy `config.example.py` to `config.py`
+2. Fill in your Spotify credentials:
+   ```python
+   SPOTIFY_CLIENT_ID = "your_client_id"
+   SPOTIFY_CLIENT_SECRET = "your_client_secret"
+   SPOTIFY_REDIRECT_URI = "http://localhost:8888/callback"
+   ```
+
+### 4. Authentication
+
+Run the authentication script:
+```bash
+python auth_spotify.py
+```
+
+Follow the prompts to authenticate with Spotify.
+
+### 5. Run the Application
+
+```bash
+python main.py
+```
+
+## Project Structure
+
+```
+spotipi/
+├── main.py              # Main application entry point
+├── spotify_client.py    # Spotify API client
+├── matrix_display.py    # RGB matrix display controller
+├── image_processor.py   # Image processing utilities
+├── config.py           # Configuration file
+├── auth_spotify.py     # Spotify authentication helper
+├── requirements.txt    # Python dependencies
+└── README.md          # This file
+```
+
+## Usage
+
+The application will:
+1. Monitor your currently playing Spotify track
+2. Download the album cover art
+3. Scale and optimize the image for the 64x64 matrix
+4. Display the image with smooth transitions
+
+## Troubleshooting
+
+- Ensure your Raspberry Pi has sufficient power for the RGB matrix
+- Check that all GPIO connections are secure
+- Verify Spotify credentials are correct
+- Make sure you have an active Spotify Premium account
+
+## License
+
+MIT License - see LICENSE file for details 

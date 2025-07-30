@@ -1,0 +1,15 @@
+[Unit]
+Description=SpotiPi - Spotify Album Art Display
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/spotipi
+ExecStart=/usr/bin/python3 /home/pi/spotipi/main.py
+Restart=always
+RestartSec=10
+Environment=PYTHONPATH=/home/pi/spotipi
+
+[Install]
+WantedBy=multi-user.target 
