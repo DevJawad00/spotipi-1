@@ -9,7 +9,7 @@ SPOTIFY_REDIRECT_URI = "http://localhost:8888/callback"
 MATRIX_WIDTH = 64
 MATRIX_HEIGHT = 64
 MATRIX_BRIGHTNESS = 50  # 0-100
-MATRIX_GPIO_MAPPING = "adafruit-hat"  # or "regular" depending on your setup
+MATRIX_GPIO_MAPPING = "regular"  # or "adafruit-hat" depending on your setup
 
 # Application Settings
 UPDATE_INTERVAL = 5  # seconds between Spotify API calls
