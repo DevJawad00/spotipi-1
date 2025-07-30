@@ -22,6 +22,7 @@ def test_mapping(mapping_name):
         options.gpio_slowdown = 1
         options.brightness = 50
         options.drop_privileges = False
+        options.no_hardware_pulse = True  # Add this to avoid sound conflict
         
         matrix = RGBMatrix(options=options)
         canvas = matrix.CreateFrameCanvas()
@@ -52,8 +53,8 @@ def test_mapping(mapping_name):
         return False
 
 def main():
-    print("🎯 GPIO Mapping Test")
-    print("=" * 30)
+    print("🎯 GPIO Mapping Test (with no-hardware-pulse)")
+    print("=" * 45)
     
     # List of mappings to try
     mappings = [
