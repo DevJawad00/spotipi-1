@@ -168,11 +168,8 @@ class SpotiPiPixelated:
             
         track_id = track_info.get('id') if track_info else None
         track_name = track_info.get('name', 'Unknown') if track_info else 'Unknown'
-        artists = track_info.get('artists', [{}]) if track_info else [{}]
-        artist_name = artists[0].get('name', 'Unknown') if artists else 'Unknown'
-        album = track_info.get('album', {}) if track_info else {}
-        images = album.get('images', [{}]) if album else [{}]
-        album_art_url = images[0].get('url') if images else None
+        artist_name = track_info.get('artist', 'Unknown') if track_info else 'Unknown'
+        album_art_url = track_info.get('album_art_url') if track_info else None
         
         print(f"🎵 Now playing: {track_name} by {artist_name}")
         
