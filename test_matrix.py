@@ -27,7 +27,7 @@ def test_matrix_basic():
         options.cols = 64
         options.chain_length = 1
         options.parallel = 1
-        options.hardware_mapping = "adafruit-hat"  # or "regular"
+        options.hardware_mapping = "regular"  # Use regular mapping since adafruit-hat doesn't work
         options.gpio_slowdown = 1
         options.brightness = 50
         
@@ -113,7 +113,7 @@ def test_matrix_simple():
         options = RGBMatrixOptions()
         options.rows = 64
         options.cols = 64
-        options.hardware_mapping = "adafruit-hat"
+        options.hardware_mapping = "regular"
         options.brightness = 30
         
         matrix = RGBMatrix(options=options)

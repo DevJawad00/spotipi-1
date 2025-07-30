@@ -117,7 +117,7 @@ def test_simple_colors():
         options = RGBMatrixOptions()
         options.rows = 64
         options.cols = 64
-        options.hardware_mapping = "adafruit-hat"
+        options.hardware_mapping = "regular"
         options.brightness = 50
         options.gpio_slowdown = 1
         

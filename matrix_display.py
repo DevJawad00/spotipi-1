@@ -20,7 +20,7 @@ class MatrixDisplay:
             options.cols = config.MATRIX_WIDTH
             options.chain_length = 1
             options.parallel = 1
-            options.hardware_mapping = config.MATRIX_GPIO_MAPPING
+            options.hardware_mapping = "regular"  # Use regular mapping since adafruit-hat doesn't work
             
             # Brightness and performance settings
             options.brightness = config.MATRIX_BRIGHTNESS

@@ -19,7 +19,7 @@ def main():
         options.cols = 64
         options.chain_length = 1
         options.parallel = 1
-        options.hardware_mapping = "adafruit-hat"
+        options.hardware_mapping = "regular"
         options.gpio_slowdown = 1
         options.brightness = 50
         options.drop_privileges = False
