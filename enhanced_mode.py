@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-SpotiPi Enhanced Demo
+SpotiPi Enhanced Mode
 
-An enhanced version with sophisticated visual effects and animations.
+This displays album art with enhanced visual effects for better appearance.
 """
 
 import time
@@ -11,9 +11,12 @@ import sys
 import os
 import numpy as np
 from datetime import datetime
-import math
+import requests
+from PIL import Image, ImageEnhance
+import io
 
 # Import our modules
+from spotify_client import SpotifyClient
 from image_processor import ImageProcessor
 from matrix_display import MatrixDisplay
 
@@ -21,9 +24,10 @@ class SpotiPiEnhanced:
     def __init__(self):
         """Initialize SpotiPi Enhanced application."""
         self.running = False
+        self.spotify_client = None
         self.image_processor = None
         self.matrix_display = None
-        self.start_time = time.time()
+        self.current_track_id = None
         
         # Setup signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -39,6 +43,10 @@ class SpotiPiEnhanced:
         print("🎵 Initializing SpotiPi Enhanced...")
         
         try:
+            # Initialize Spotify client
+            print("📡 Connecting to Spotify...")
+            self.spotify_client = SpotifyClient()
+            
             # Initialize image processor
             print("🖼️  Initializing image processor...")
             self.image_processor = ImageProcessor()
@@ -54,6 +62,163 @@ class SpotiPiEnhanced:
             print(f"❌ Initialization failed: {e}")
             return False
     
+    def create_enhanced_image(self, image_url):
+        """Create an enhanced version of the album art."""
+        try:
+            # Download the image
+            response = requests.get(image_url)
+            response.raise_for_status()
+            
+            # Open with PIL
+            img = Image.open(io.BytesIO(response.content))
+            
+            # Convert to RGB if needed
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            
+            # Enhance the image
+            img = self._enhance_image(img)
+            
+            # Resize to 64x64
+            img = img.resize((64, 64), Image.LANCZOS)
+            
+            # Convert to numpy array
+            img_array = np.array(img)
+            
+            # Apply color enhancement
+            img_array = self._enhance_colors(img_array)
+            
+            return img_array
+            
+        except Exception as e:
+            print(f"❌ Error creating enhanced image: {e}")
+            return self._create_placeholder_image()
+    
+    def _enhance_image(self, img):
+        """Apply image enhancements."""
+        # Increase contrast
+        enhancer = ImageEnhance.Contrast(img)
+        img = enhancer.enhance(1.3)
+        
+        # Increase saturation
+        enhancer = ImageEnhance.Color(img)
+        img = enhancer.enhance(1.4)
+        
+        # Increase brightness slightly
+        enhancer = ImageEnhance.Brightness(img)
+        img = enhancer.enhance(1.1)
+        
+        # Apply sharpening
+        enhancer = ImageEnhance.Sharpness(img)
+        img = enhancer.enhance(1.2)
+        
+        return img
+    
+    def _enhance_colors(self, img_array):
+        """Enhance colors for better matrix display."""
+        # Convert to float for processing
+        img_float = img_array.astype(np.float32) / 255.0
+        
+        # Apply gamma correction for better color reproduction
+        gamma = 0.8
+        img_float = np.power(img_float, gamma)
+        
+        # Increase saturation
+        # Convert to HSV
+        hsv = self._rgb_to_hsv(img_float)
+        hsv[:, :, 1] = np.clip(hsv[:, :, 1] * 1.3, 0, 1)  # Increase saturation
+        img_float = self._hsv_to_rgb(hsv)
+        
+        # Convert back to uint8
+        img_array = np.clip(img_float * 255, 0, 255).astype(np.uint8)
+        
+        return img_array
+    
+    def _rgb_to_hsv(self, rgb):
+        """Convert RGB to HSV."""
+        r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
+        
+        max_rgb = np.maximum(np.maximum(r, g), b)
+        min_rgb = np.minimum(np.minimum(r, g), b)
+        diff = max_rgb - min_rgb
+        
+        # Hue
+        h = np.zeros_like(max_rgb)
+        h[max_rgb == r] = (60 * ((g[max_rgb == r] - b[max_rgb == r]) / diff[max_rgb == r]) % 360) / 360
+        h[max_rgb == g] = (60 * ((b[max_rgb == g] - r[max_rgb == g]) / diff[max_rgb == g] + 2) % 360) / 360
+        h[max_rgb == b] = (60 * ((r[max_rgb == b] - g[max_rgb == b]) / diff[max_rgb == b] + 4) % 360) / 360
+        
+        # Saturation
+        s = np.where(max_rgb == 0, 0, diff / max_rgb)
+        
+        # Value
+        v = max_rgb
+        
+        return np.stack([h, s, v], axis=2)
+    
+    def _hsv_to_rgb(self, hsv):
+        """Convert HSV to RGB."""
+        h, s, v = hsv[:, :, 0], hsv[:, :, 1], hsv[:, :, 2]
+        
+        h = h * 360
+        c = v * s
+        x = c * (1 - np.abs((h / 60) % 2 - 1))
+        m = v - c
+        
+        r = np.zeros_like(h)
+        g = np.zeros_like(h)
+        b = np.zeros_like(h)
+        
+        mask = (h >= 0) & (h < 60)
+        r[mask] = c[mask]
+        g[mask] = x[mask]
+        b[mask] = 0
+        
+        mask = (h >= 60) & (h < 120)
+        r[mask] = x[mask]
+        g[mask] = c[mask]
+        b[mask] = 0
+        
+        mask = (h >= 120) & (h < 180)
+        r[mask] = 0
+        g[mask] = c[mask]
+        b[mask] = x[mask]
+        
+        mask = (h >= 180) & (h < 240)
+        r[mask] = 0
+        g[mask] = x[mask]
+        b[mask] = c[mask]
+        
+        mask = (h >= 240) & (h < 300)
+        r[mask] = x[mask]
+        g[mask] = 0
+        b[mask] = c[mask]
+        
+        mask = (h >= 300) & (h < 360)
+        r[mask] = c[mask]
+        g[mask] = 0
+        b[mask] = x[mask]
+        
+        r = r + m
+        g = g + m
+        b = b + m
+        
+        return np.stack([r, g, b], axis=2)
+    
+    def _create_placeholder_image(self):
+        """Create a placeholder image when album art fails to load."""
+        image = np.zeros((64, 64, 3), dtype=np.uint8)
+        
+        # Create a gradient pattern
+        for y in range(64):
+            for x in range(64):
+                r = int(255 * (x / 64))
+                g = int(255 * (y / 64))
+                b = int(255 * ((x + y) / 128))
+                image[y, x] = [r, g, b]
+        
+        return image
+    
     def run(self):
         """Main application loop."""
         if not self.initialize():
@@ -61,71 +226,90 @@ class SpotiPiEnhanced:
         
         self.running = True
         print("🎵 SpotiPi Enhanced is running! Press Ctrl+C to stop.")
-        print("📺 Displaying enhanced visual effects on matrix...")
+        print("📺 Monitoring Spotify playback...")
         print()
         
-        # Display enhanced startup animation
-        self._display_enhanced_startup()
-        
-        # Enhanced demo loop with more sophisticated effects
-        demo_functions = [
-            self._create_wave_pattern,
-            self._create_spiral_galaxy,
-            self._create_neon_city,
-            self._create_fire_effect,
-            self._create_matrix_rain,
-            self._create_cosmic_swirl,
-            self._create_neon_pulse,
-            self._create_geometric_art
-        ]
-        
-        effect_index = 0
+        # Display startup animation
+        self._display_startup_animation()
         
         while self.running:
             try:
-                # Display current enhanced effect
-                current_function = demo_functions[effect_index]
-                print(f"🎨 Displaying enhanced effect {effect_index + 1}/{len(demo_functions)}...")
+                # Get current track info
+                track_info = self.spotify_client.get_current_track()
                 
-                # Display animated effect for 8 seconds
-                for frame in range(80):  # 80 frames at 0.1s each = 8 seconds
-                    if not self.running:
-                        break
-                    current_image = current_function(frame * 0.1)
-                    self.matrix_display.display_image(current_image, 0.1)
-                
-                # Cycle to next effect
-                effect_index = (effect_index + 1) % len(demo_functions)
-                
+                if track_info:
+                    # Check if track has changed
+                    if isinstance(track_info, dict) and self.spotify_client.has_track_changed(track_info):
+                        self._handle_track_change(track_info)
+                    else:
+                        # Track is still playing, just wait
+                        time.sleep(5)
+                else:
+                    # No track playing, show idle state
+                    self._handle_no_track()
+                    time.sleep(5)
+                    
             except KeyboardInterrupt:
                 break
             except Exception as e:
                 print(f"❌ Error in main loop: {e}")
-                time.sleep(1)
+                time.sleep(5)
         
         self.stop()
     
-    def _display_enhanced_startup(self):
-        """Display enhanced startup animation."""
-        print("🚀 Starting up with enhanced effects...")
+    def _handle_track_change(self, track_info):
+        """Handle when a track changes."""
+        track_id = track_info.get('id') if track_info else None
+        track_name = track_info.get('name', 'Unknown') if track_info else 'Unknown'
+        artist_name = track_info.get('artist', 'Unknown') if track_info else 'Unknown'
+        album_art_url = track_info.get('album_art_url') if track_info else None
         
-        # Create a more sophisticated startup animation
+        print(f"🎵 Now playing: {track_name} by {artist_name}")
+        
+        if album_art_url:
+            print("🖼️  Creating enhanced album art...")
+            enhanced_image = self.create_enhanced_image(album_art_url)
+            self.matrix_display.display_image(enhanced_image, 0.1)
+            print("✅ Enhanced album art displayed!")
+        else:
+            print("⚠️  No album art available")
+            placeholder = self._create_placeholder_image()
+            self.matrix_display.display_image(placeholder, 0.1)
+        
+        self.current_track_id = track_id
+    
+    def _handle_no_track(self):
+        """Handle when no track is playing."""
+        print("⏸️  No track currently playing")
+        # Show a beautiful idle pattern
+        idle_image = np.zeros((64, 64, 3), dtype=np.uint8)
+        for y in range(64):
+            for x in range(64):
+                # Create a smooth wave pattern
+                wave = np.sin(x * 0.2 + time.time()) * np.cos(y * 0.2 + time.time())
+                intensity = int(128 + 127 * wave)
+                idle_image[y, x] = [0, intensity, intensity]  # Cyan wave
+        self.matrix_display.display_image(idle_image, 0.1)
+    
+    def _display_startup_animation(self):
+        """Display startup animation."""
+        print("🚀 Starting up...")
+        
+        # Create a beautiful startup animation
         for i in range(20):
             image = np.zeros((64, 64, 3), dtype=np.uint8)
             
-            # Create expanding rings with rainbow colors
+            # Create expanding circles
             center_x, center_y = 32, 32
-            radius = 2 + i * 1.5
+            radius = 2 + i * 2
             
             for y in range(64):
                 for x in range(64):
                     distance = np.sqrt((x - center_x)**2 + (y - center_y)**2)
                     if distance <= radius:
-                        # Create rainbow effect
-                        hue = (i * 18 + distance * 5) % 360
                         intensity = int(255 * (1 - distance / radius))
-                        
-                        # Convert HSV to RGB
+                        # Rainbow colors
+                        hue = (i * 18) % 360
                         if hue < 60:
                             r, g, b = 255, intensity * hue // 60, 0
                         elif hue < 120:
@@ -144,240 +328,9 @@ class SpotiPiEnhanced:
             self.matrix_display.display_image(image, 0.1)
             time.sleep(0.1)
         
-        # Clear with fade
-        for i in range(10):
-            fade_factor = 1 - (i / 10)
-            image = np.zeros((64, 64, 3), dtype=np.uint8)
-            self.matrix_display.display_image(image, 0.1)
-            time.sleep(0.05)
-    
-    def _create_wave_pattern(self, time_offset):
-        """Create animated wave pattern."""
-        image = np.zeros((64, 64, 3), dtype=np.uint8)
-        
-        for y in range(64):
-            for x in range(64):
-                # Create multiple wave layers
-                wave1 = np.sin(x * 0.2 + time_offset * 2) * np.cos(y * 0.2 + time_offset * 1.5)
-                wave2 = np.sin(x * 0.1 + time_offset * 3) * np.cos(y * 0.1 + time_offset * 2.5)
-                wave3 = np.sin((x + y) * 0.15 + time_offset * 1.8)
-                
-                # Combine waves
-                combined_wave = (wave1 + wave2 + wave3) / 3
-                intensity = int(128 + 127 * combined_wave)
-                
-                # Create ocean-like colors
-                r = int(intensity * 0.2)
-                g = int(intensity * 0.6)
-                b = int(intensity)
-                
-                image[y, x] = [r, g, b]
-        
-        return image
-    
-    def _create_spiral_galaxy(self, time_offset):
-        """Create animated spiral galaxy effect."""
-        image = np.zeros((64, 64, 3), dtype=np.uint8)
-        center_x, center_y = 32, 32
-        
-        for y in range(64):
-            for x in range(64):
-                # Calculate distance and angle from center
-                dx, dy = x - center_x, y - center_y
-                distance = np.sqrt(dx*dx + dy*dy)
-                angle = np.arctan2(dy, dx)
-                
-                # Create spiral effect
-                spiral = np.sin(angle * 3 + distance * 0.1 + time_offset * 2)
-                rotation = np.sin(angle + time_offset * 0.5)
-                
-                # Combine effects
-                intensity = int(128 + 127 * (spiral + rotation) / 2)
-                
-                # Create galaxy colors (purple/blue)
-                r = int(intensity * 0.8)
-                g = int(intensity * 0.3)
-                b = int(intensity)
-                
-                # Add distance-based fade
-                fade = max(0, 1 - distance / 45)
-                image[y, x] = [int(r * fade), int(g * fade), int(b * fade)]
-        
-        return image
-    
-    def _create_neon_city(self, time_offset):
-        """Create animated neon city effect."""
-        image = np.zeros((64, 64, 3), dtype=np.uint8)
-        
-        for y in range(64):
-            for x in range(64):
-                # Create building-like patterns
-                building_height = int(32 + 16 * np.sin(x * 0.3 + time_offset))
-                if y > building_height:
-                    # Sky gradient
-                    sky_intensity = int(64 + 32 * (y - building_height) / (64 - building_height))
-                    image[y, x] = [sky_intensity//4, sky_intensity//8, sky_intensity//2]
-                else:
-                    # Building with neon lights
-                    neon_light = np.sin(x * 0.5 + time_offset * 3) * np.sin(y * 0.3 + time_offset * 2)
-                    if abs(neon_light) > 0.7:
-                        # Bright neon
-                        image[y, x] = [255, 255, 255]
-                    else:
-                        # Building color
-                        image[y, x] = [32, 32, 48]
-        
-        return image
-    
-    def _create_fire_effect(self, time_offset):
-        """Create animated fire effect."""
-        image = np.zeros((64, 64, 3), dtype=np.uint8)
-        
-        for y in range(64):
-            for x in range(64):
-                # Create fire base
-                fire_base = 64 - y
-                if fire_base > 0:
-                    # Add noise and animation
-                    noise = np.sin(x * 0.3 + time_offset * 4) * np.cos(y * 0.2 + time_offset * 3)
-                    fire_intensity = fire_base + noise * 20
-                    
-                    # Create fire colors
-                    if fire_intensity > 40:
-                        # Hot center (white/yellow)
-                        r = min(255, int(fire_intensity * 6))
-                        g = min(255, int(fire_intensity * 4))
-                        b = min(255, int(fire_intensity * 2))
-                    elif fire_intensity > 20:
-                        # Medium heat (orange)
-                        r = min(255, int(fire_intensity * 8))
-                        g = min(255, int(fire_intensity * 4))
-                        b = 0
-                    else:
-                        # Cool edges (red)
-                        r = min(255, int(fire_intensity * 10))
-                        g = 0
-                        b = 0
-                    
-                    image[y, x] = [r, g, b]
-        
-        return image
-    
-    def _create_matrix_rain(self, time_offset):
-        """Create Matrix-style digital rain effect."""
-        image = np.zeros((64, 64, 3), dtype=np.uint8)
-        
-        # Create multiple rain streams
-        for stream in range(8):
-            stream_x = (stream * 8 + int(time_offset * 10)) % 64
-            
-            for drop in range(10):
-                drop_y = (int(time_offset * 20) + drop * 6) % 64
-                
-                # Create green digital rain
-                if 0 <= stream_x < 64 and 0 <= drop_y < 64:
-                    intensity = max(0, 255 - drop * 25)
-                    image[drop_y, stream_x] = [0, intensity, 0]
-                    
-                    # Add trail
-                    for trail in range(1, 4):
-                        trail_y = (drop_y + trail) % 64
-                        trail_intensity = max(0, intensity - trail * 50)
-                        if trail_intensity > 0:
-                            image[trail_y, stream_x] = [0, trail_intensity, 0]
-        
-        return image
-    
-    def _create_cosmic_swirl(self, time_offset):
-        """Create cosmic swirl effect."""
-        image = np.zeros((64, 64, 3), dtype=np.uint8)
-        center_x, center_y = 32, 32
-        
-        for y in range(64):
-            for x in range(64):
-                # Calculate polar coordinates
-                dx, dy = x - center_x, y - center_y
-                distance = np.sqrt(dx*dx + dy*dy)
-                angle = np.arctan2(dy, dx)
-                
-                # Create swirling effect
-                swirl = np.sin(angle * 2 + distance * 0.1 + time_offset * 3)
-                cosmic = np.cos(angle * 3 - distance * 0.15 + time_offset * 2)
-                
-                # Combine effects
-                intensity = int(128 + 127 * (swirl + cosmic) / 2)
-                
-                # Create cosmic colors (deep space)
-                r = int(intensity * 0.4)
-                g = int(intensity * 0.2)
-                b = int(intensity * 0.8)
-                
-                # Add star twinkle
-                twinkle = np.sin(distance * 0.5 + time_offset * 5) * np.cos(angle * 4 + time_offset * 3)
-                if twinkle > 0.8:
-                    r, g, b = 255, 255, 255
-                
-                image[y, x] = [r, g, b]
-        
-        return image
-    
-    def _create_neon_pulse(self, time_offset):
-        """Create neon pulse effect."""
-        image = np.zeros((64, 64, 3), dtype=np.uint8)
-        
-        for y in range(64):
-            for x in range(64):
-                # Create pulsing circles
-                center1_x, center1_y = 16, 16
-                center2_x, center2_y = 48, 48
-                
-                dist1 = np.sqrt((x - center1_x)**2 + (y - center1_y)**2)
-                dist2 = np.sqrt((x - center2_x)**2 + (y - center2_y)**2)
-                
-                # Pulsing effect
-                pulse1 = np.sin(time_offset * 4) * 20 + 15
-                pulse2 = np.sin(time_offset * 4 + np.pi) * 20 + 15
-                
-                # Calculate intensities
-                intensity1 = max(0, 255 - dist1 * 8) if dist1 < pulse1 else 0
-                intensity2 = max(0, 255 - dist2 * 8) if dist2 < pulse2 else 0
-                
-                # Combine with different colors
-                r = min(255, intensity1)
-                g = min(255, intensity2)
-                b = min(255, (intensity1 + intensity2) // 2)
-                
-                image[y, x] = [r, g, b]
-        
-        return image
-    
-    def _create_geometric_art(self, time_offset):
-        """Create geometric art pattern."""
-        image = np.zeros((64, 64, 3), dtype=np.uint8)
-        
-        for y in range(64):
-            for x in range(64):
-                # Create geometric patterns
-                pattern1 = np.sin(x * 0.2 + time_offset) * np.cos(y * 0.2 + time_offset)
-                pattern2 = np.sin((x + y) * 0.1 + time_offset * 2)
-                pattern3 = np.cos(x * 0.3 - time_offset) * np.sin(y * 0.3 - time_offset)
-                
-                # Combine patterns
-                combined = (pattern1 + pattern2 + pattern3) / 3
-                intensity = int(128 + 127 * combined)
-                
-                # Create geometric color scheme
-                r = int(intensity * 0.9)
-                g = int(intensity * 0.7)
-                b = int(intensity * 0.5)
-                
-                # Add geometric borders
-                if x % 16 == 0 or y % 16 == 0:
-                    r, g, b = 255, 255, 255
-                
-                image[y, x] = [r, g, b]
-        
-        return image
+        # Clear
+        black_image = np.zeros((64, 64, 3), dtype=np.uint8)
+        self.matrix_display.display_image(black_image, 0.1)
     
     def stop(self):
         """Stop the application."""
@@ -391,14 +344,13 @@ class SpotiPiEnhanced:
 
 def main():
     """Main function."""
-    print("🎵 SpotiPi Enhanced Demo")
+    print("🎵 SpotiPi Enhanced Mode")
     print("=" * 30)
-    print("Enhanced visual effects and animations!")
-    print("(No Spotify authentication required)")
+    print("This will display album art with enhanced visual effects!")
     print()
     
     app = SpotiPiEnhanced()
     app.run()
 
 if __name__ == "__main__":
-    main() 
+    main()
