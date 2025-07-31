@@ -332,18 +332,84 @@ class SpotiPiEnhanced:
     def _handle_no_track(self):
         """Handle when no track is playing or track is paused."""
         print("⏸️  No track currently playing or paused")
-        # Show a beautiful idle pattern
-        idle_image = np.zeros((64, 64, 3), dtype=np.uint8)
+        # Show a really cool animated pattern
+        idle_image = self._create_cool_idle_animation()
+        self.matrix_display.display_image(idle_image, 0.1)
+    
+    def _create_cool_idle_animation(self):
+        """Create a really cool animated idle pattern."""
+        image = np.zeros((64, 64, 3), dtype=np.uint8)
         current_time = time.time()
         
         for y in range(64):
             for x in range(64):
-                # Create a smooth wave pattern
-                wave = np.sin(x * 0.2 + current_time * 0.5) * np.cos(y * 0.2 + current_time * 0.3)
-                intensity = int(128 + 127 * wave)
-                idle_image[y, x] = [0, intensity, intensity]  # Cyan wave
+                # Create multiple animated effects
+                
+                # 1. Pulsing center with expanding rings
+                center_x, center_y = 32, 32
+                distance = np.sqrt((x - center_x)**2 + (y - center_y)**2)
+                pulse_radius = 15 + 10 * np.sin(current_time * 2)
+                pulse_intensity = max(0, 1 - abs(distance - pulse_radius) / 8)
+                
+                # 2. Rotating spiral effect
+                angle = np.arctan2(y - center_y, x - center_x)
+                spiral = np.sin(angle * 3 + distance * 0.2 + current_time * 3)
+                
+                # 3. Wave interference pattern
+                wave1 = np.sin(x * 0.3 + current_time * 1.5) * np.cos(y * 0.3 + current_time * 1.2)
+                wave2 = np.sin((x + y) * 0.2 + current_time * 2.1) * np.cos((x - y) * 0.2 + current_time * 1.8)
+                wave3 = np.sin(x * 0.1 + current_time * 0.8) * np.cos(y * 0.1 + current_time * 0.6)
+                
+                # Combine all effects
+                combined_effect = (pulse_intensity + spiral + wave1 + wave2 + wave3) / 5
+                intensity = int(128 + 127 * combined_effect)
+                
+                # Create dynamic color scheme based on time
+                color_phase = (current_time * 0.5) % 6  # 6 different color phases
+                
+                if color_phase < 1:  # Red to Orange
+                    r = intensity
+                    g = int(intensity * color_phase)
+                    b = 0
+                elif color_phase < 2:  # Orange to Yellow
+                    r = intensity
+                    g = intensity
+                    b = int(intensity * (color_phase - 1))
+                elif color_phase < 3:  # Yellow to Green
+                    r = int(intensity * (3 - color_phase))
+                    g = intensity
+                    b = int(intensity * (color_phase - 1))
+                elif color_phase < 4:  # Green to Cyan
+                    r = 0
+                    g = intensity
+                    b = int(intensity * (color_phase - 2))
+                elif color_phase < 5:  # Cyan to Blue
+                    r = 0
+                    g = int(intensity * (5 - color_phase))
+                    b = intensity
+                else:  # Blue to Purple
+                    r = int(intensity * (color_phase - 5))
+                    g = 0
+                    b = intensity
+                
+                # Add some sparkle effect
+                sparkle = np.sin(x * 0.5 + current_time * 4) * np.cos(y * 0.5 + current_time * 3.5)
+                if sparkle > 0.8:
+                    r = min(255, r + 100)
+                    g = min(255, g + 100)
+                    b = min(255, b + 100)
+                
+                # Add edge glow effect
+                edge_distance = min(x, y, 63-x, 63-y)
+                if edge_distance < 8:
+                    glow_factor = (8 - edge_distance) / 8
+                    r = min(255, int(r + 50 * glow_factor))
+                    g = min(255, int(g + 50 * glow_factor))
+                    b = min(255, int(b + 50 * glow_factor))
+                
+                image[y, x] = [r, g, b]
         
-        self.matrix_display.display_image(idle_image, 0.1)
+        return image
     
     def _display_startup_animation(self):
         """Display startup animation."""
