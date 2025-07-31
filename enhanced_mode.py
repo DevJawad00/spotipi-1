@@ -239,6 +239,18 @@ class SpotiPiEnhanced:
         
         return False
     
+    def _should_display_album_art(self, track_info):
+        """Determine if we should display album art based on track info."""
+        if not track_info:
+            return False
+        
+        # If we have a track with album art, display it
+        # Don't rely solely on is_playing as it can be unreliable
+        album_art_url = track_info.get('album_art_url')
+        track_name = track_info.get('name')
+        
+        return album_art_url is not None and track_name is not None
+    
     def run(self):
         """Main application loop."""
         if not self.initialize():
@@ -266,10 +278,18 @@ class SpotiPiEnhanced:
                     if track_changed or playback_changed:
                         self._handle_track_change(track_info)
                     else:
-                        # Track is still playing, just wait
-                        time.sleep(2)
+                        # Check if we should display album art (in case API was wrong before)
+                        if self._should_display_album_art(track_info) and self.current_track_id != track_info.get('id'):
+                            print("🔄 Re-checking track info...")
+                            self._handle_track_change(track_info)
+                        else:
+                            # Track is still playing, just wait
+                            time.sleep(2)
                 else:
                     # No track playing, show idle state
+                    if self.current_track_id is not None:
+                        print("⏸️  No track detected, switching to idle...")
+                        self.current_track_id = None
                     self._handle_no_track()
                     time.sleep(2)
                     
@@ -292,18 +312,20 @@ class SpotiPiEnhanced:
         print(f"🎵 Track: {track_name} by {artist_name}")
         print(f"▶️  Playing: {is_playing}")
         
-        if is_playing and album_art_url:
+        # If we have a track with album art, assume it's playing
+        # (Spotify API sometimes incorrectly reports is_playing as false)
+        if track_info and album_art_url:
             print("🖼️  Creating enhanced album art...")
             enhanced_image = self.create_enhanced_image(album_art_url)
             self.matrix_display.display_image(enhanced_image, 0.1)
             print("✅ Enhanced album art displayed!")
-        elif not is_playing:
-            print("⏸️  Track paused, showing idle pattern...")
-            self._handle_no_track()
-        else:
+        elif track_info and not album_art_url:
             print("⚠️  No album art available")
             placeholder = self._create_placeholder_image()
             self.matrix_display.display_image(placeholder, 0.1)
+        else:
+            print("⏸️  No track detected, showing idle pattern...")
+            self._handle_no_track()
         
         self.current_track_id = track_id
     
