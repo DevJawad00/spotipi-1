@@ -412,8 +412,8 @@ class SpotiPiEnhanced:
     def _load_idle_gif(self):
         """Load and prepare the idle GIF animation."""
         try:
-            # Try to load an actual GIF file first
-            gif_path = "idle_animation.gif"
+            # Try to load the Sad Girl Sadness GIF file
+            gif_path = "Sad Girl Sadness.gif"
             if os.path.exists(gif_path):
                 print(f"📁 Loading GIF from file: {gif_path}")
                 return self._load_gif_from_file(gif_path)
