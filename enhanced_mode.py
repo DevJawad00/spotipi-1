@@ -412,14 +412,35 @@ class SpotiPiEnhanced:
     def _load_idle_gif(self):
         """Load and prepare the idle GIF animation."""
         try:
-            # Try to load the Sad Girl Sadness GIF file
-            gif_path = "Sad Girl Sadness.gif"
-            if os.path.exists(gif_path):
-                print(f"📁 Loading GIF from file: {gif_path}")
-                return self._load_gif_from_file(gif_path)
-            else:
-                print("🎨 Creating programmatic GIF animation...")
-                return self._create_programmatic_gif()
+            # Try multiple possible file names for the Sad Girl Sadness GIF
+            possible_gif_paths = [
+                "Sad Girl Sadness.gif",
+                "Sad Girl Sadness.GIF",
+                "sad girl sadness.gif",
+                "sad_girl_sadness.gif",
+                "sadgirlsadness.gif"
+            ]
+            
+            print(f"🔍 Looking for Sad Girl Sadness GIF file...")
+            print(f"📂 Current directory: {os.getcwd()}")
+            
+            # List all files in current directory to help debug
+            files_in_dir = [f for f in os.listdir('.') if f.lower().endswith('.gif')]
+            print(f"📁 GIF files found in directory: {files_in_dir}")
+            
+            for gif_path in possible_gif_paths:
+                print(f"🔍 Checking: {gif_path}")
+                if os.path.exists(gif_path):
+                    print(f"📁 Found GIF file: {gif_path}")
+                    success = self._load_gif_from_file(gif_path)
+                    if success:
+                        print("✅ Successfully loaded Sad Girl Sadness GIF!")
+                        return True
+                    else:
+                        print("❌ Failed to load GIF file, trying next option...")
+            
+            print("❌ No Sad Girl Sadness GIF found, creating programmatic animation...")
+            return self._create_programmatic_gif()
             
         except Exception as e:
             print(f"❌ Error loading idle GIF: {e}")
