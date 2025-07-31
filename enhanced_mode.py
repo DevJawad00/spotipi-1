@@ -292,14 +292,14 @@ class SpotiPiEnhanced:
                         self.current_track_id = None
                     
                     # Continuous idle animation loop
-                    for frame in range(50):  # 50 frames = 5 seconds of animation
+                    for frame in range(100):  # 100 frames = 5 seconds of animation
                         if not self.running:
                             break
                         idle_image = self._create_cool_idle_animation()
-                        self.matrix_display.display_image(idle_image, 0.1)
+                        self.matrix_display.display_image(idle_image, 0.05)  # 20 FPS for smoother animation
                     
                     # Check for track changes after animation cycle
-                    time.sleep(0.1)
+                    time.sleep(0.05)
                     
             except KeyboardInterrupt:
                 break
@@ -343,19 +343,19 @@ class SpotiPiEnhanced:
         # Animation is now handled in the main loop
     
     def _create_cool_idle_animation(self):
-        """Create a spinning square animation with colors."""
+        """Create a fast and smooth spinning square animation with enhanced effects."""
         image = np.zeros((64, 64, 3), dtype=np.uint8)
         current_time = time.time()
         
-        # Square properties
+        # Enhanced square properties
         center_x, center_y = 32, 32
-        square_size = 20
-        rotation_speed = 2.0
+        square_size = 18
+        rotation_speed = 4.0  # Much faster rotation
         
         # Calculate rotation angle
         angle = current_time * rotation_speed
         
-        # Create spinning square
+        # Create enhanced spinning square
         for y in range(64):
             for x in range(64):
                 # Calculate distance from center
@@ -370,41 +370,70 @@ class SpotiPiEnhanced:
                 
                 # Check if point is inside the square
                 if abs(rotated_x) <= square_size and abs(rotated_y) <= square_size:
-                    # Create color based on position and time
-                    color_phase = (current_time * 0.8) % 6  # 6 different color phases
+                    # Enhanced color system with faster transitions
+                    color_phase = (current_time * 2.0) % 8  # 8 colors, faster transitions
                     
-                    # Calculate intensity based on distance from center
+                    # Calculate intensity with enhanced gradient
                     distance = np.sqrt(rotated_x**2 + rotated_y**2)
                     max_distance = square_size * np.sqrt(2)
-                    intensity = int(255 * (1 - distance / max_distance))
+                    intensity = int(255 * (1 - (distance / max_distance) ** 1.5))  # Sharper falloff
                     
-                    # Apply color scheme
-                    if color_phase < 1:  # Red
+                    # Enhanced color scheme with more vibrant colors
+                    if color_phase < 1:  # Bright Red
                         r, g, b = intensity, 0, 0
-                    elif color_phase < 2:  # Orange
-                        r, g, b = intensity, int(intensity * 0.5), 0
-                    elif color_phase < 3:  # Yellow
+                    elif color_phase < 2:  # Bright Orange
+                        r, g, b = intensity, int(intensity * 0.7), 0
+                    elif color_phase < 3:  # Bright Yellow
                         r, g, b = intensity, intensity, 0
-                    elif color_phase < 4:  # Green
+                    elif color_phase < 4:  # Bright Green
                         r, g, b = 0, intensity, 0
-                    elif color_phase < 5:  # Blue
+                    elif color_phase < 5:  # Bright Cyan
+                        r, g, b = 0, intensity, intensity
+                    elif color_phase < 6:  # Bright Blue
                         r, g, b = 0, 0, intensity
-                    else:  # Purple
-                        r, g, b = int(intensity * 0.5), 0, intensity
+                    elif color_phase < 7:  # Bright Magenta
+                        r, g, b = intensity, 0, intensity
+                    else:  # Bright White
+                        r, g, b = intensity, intensity, intensity
                     
-                    # Add some variation based on position
-                    variation = np.sin(rotated_x * 0.2 + current_time) * np.cos(rotated_y * 0.2 + current_time)
-                    brightness = 0.8 + 0.2 * variation
+                    # Add pulsing effect
+                    pulse = np.sin(current_time * 6) * 0.3 + 0.7
+                    r = int(r * pulse)
+                    g = int(g * pulse)
+                    b = int(b * pulse)
+                    
+                    # Add position-based brightness variation
+                    variation = np.sin(rotated_x * 0.3 + current_time * 3) * np.cos(rotated_y * 0.3 + current_time * 2.5)
+                    brightness = 0.9 + 0.1 * variation
                     
                     r = int(r * brightness)
                     g = int(g * brightness)
                     b = int(b * brightness)
                     
+                    # Add edge glow effect
+                    edge_distance = min(abs(rotated_x - square_size), abs(rotated_y - square_size))
+                    if edge_distance < 3:
+                        glow = (3 - edge_distance) / 3
+                        r = min(255, int(r + 50 * glow))
+                        g = min(255, int(g + 50 * glow))
+                        b = min(255, int(b + 50 * glow))
+                    
                     image[y, x] = [r, g, b]
                 else:
-                    # Background - subtle gradient
-                    bg_intensity = int(32 + 16 * np.sin(x * 0.1 + current_time * 0.5))
-                    image[y, x] = [bg_intensity//4, bg_intensity//8, bg_intensity//2]
+                    # Enhanced animated background
+                    bg_wave1 = np.sin(x * 0.2 + current_time * 1.5) * np.cos(y * 0.2 + current_time * 1.2)
+                    bg_wave2 = np.sin((x + y) * 0.1 + current_time * 0.8)
+                    bg_combined = (bg_wave1 + bg_wave2) / 2
+                    bg_intensity = int(20 + 15 * bg_combined)
+                    
+                    # Subtle color variation in background
+                    bg_color_phase = (current_time * 0.5) % 3
+                    if bg_color_phase < 1:
+                        image[y, x] = [bg_intensity//3, bg_intensity//6, bg_intensity//2]
+                    elif bg_color_phase < 2:
+                        image[y, x] = [bg_intensity//4, bg_intensity//3, bg_intensity//6]
+                    else:
+                        image[y, x] = [bg_intensity//2, bg_intensity//4, bg_intensity//3]
         
         return image
     
