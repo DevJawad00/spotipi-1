@@ -31,6 +31,9 @@ class SpotiPiEnhanced:
         self.last_playback_state = None  # Track if playing/paused
         self.idle_gif_frames = []  # Store GIF frames for idle animation
         self.current_gif_frame = 0  # Current frame index
+        self.all_gif_files = []  # Store all available GIF files
+        self.current_gif_index = 0  # Current GIF file index
+        self.last_gif_switch_time = 0  # Time of last GIF switch
         
         # Setup signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -301,6 +304,10 @@ class SpotiPiEnhanced:
                     for frame in range(100):  # 100 frames = 5 seconds of animation
                         if not self.running:
                             break
+                        
+                        # Check if it's time to switch to next GIF
+                        self._check_and_switch_gif()
+                        
                         gif_frame = self._get_next_gif_frame()
                         if gif_frame is not None:
                             self.matrix_display.display_image(gif_frame, 0.05)  # 20 FPS for smooth GIF playback
@@ -412,38 +419,28 @@ class SpotiPiEnhanced:
     def _load_idle_gif(self):
         """Load and prepare the idle GIF animation."""
         try:
-            # Try multiple possible file names for the Sad Girl Sadness GIF
-            possible_gif_paths = [
-                "Sad Girl Sadness GIF.gif",
-                "Sad Girl Sadness GIF.GIF",
-                "sad girl sadness gif.gif",
-                "Sad Girl Sadness.gif",
-                "Sad Girl Sadness.GIF",
-                "sad girl sadness.gif",
-                "sad_girl_sadness.gif",
-                "sadgirlsadness.gif"
-            ]
-            
-            print(f"🔍 Looking for Sad Girl Sadness GIF file...")
+            print(f"🔍 Looking for GIF files in directory...")
             print(f"📂 Current directory: {os.getcwd()}")
             
-            # List all files in current directory to help debug
-            files_in_dir = [f for f in os.listdir('.') if f.lower().endswith('.gif')]
-            print(f"📁 GIF files found in directory: {files_in_dir}")
+            # Find all GIF files in current directory
+            self.all_gif_files = [f for f in os.listdir('.') if f.lower().endswith('.gif')]
+            print(f"📁 Found {len(self.all_gif_files)} GIF files: {self.all_gif_files}")
             
-            for gif_path in possible_gif_paths:
-                print(f"🔍 Checking: {gif_path}")
-                if os.path.exists(gif_path):
-                    print(f"📁 Found GIF file: {gif_path}")
-                    success = self._load_gif_from_file(gif_path)
-                    if success:
-                        print("✅ Successfully loaded Sad Girl Sadness GIF!")
-                        return True
-                    else:
-                        print("❌ Failed to load GIF file, trying next option...")
+            if not self.all_gif_files:
+                print("❌ No GIF files found, creating programmatic animation...")
+                return self._create_programmatic_gif()
             
-            print("❌ No Sad Girl Sadness GIF found, creating programmatic animation...")
-            return self._create_programmatic_gif()
+            # Load the first GIF to start with
+            print(f"🎬 Loading first GIF: {self.all_gif_files[0]}")
+            success = self._load_gif_from_file(self.all_gif_files[0])
+            if success:
+                print(f"✅ Successfully loaded {self.all_gif_files[0]}!")
+                self.current_gif_index = 0
+                self.last_gif_switch_time = time.time()
+                return True
+            else:
+                print("❌ Failed to load first GIF, creating programmatic animation...")
+                return self._create_programmatic_gif()
             
         except Exception as e:
             print(f"❌ Error loading idle GIF: {e}")
@@ -556,6 +553,30 @@ class SpotiPiEnhanced:
         frame = self.idle_gif_frames[self.current_gif_frame]
         self.current_gif_frame = (self.current_gif_frame + 1) % len(self.idle_gif_frames)
         return frame
+
+    def _switch_to_next_gif(self):
+        """Switch to the next GIF in the rotation."""
+        if len(self.all_gif_files) <= 1:
+            return  # Only one GIF or no GIFs, no need to switch
+        
+        # Move to next GIF
+        self.current_gif_index = (self.current_gif_index + 1) % len(self.all_gif_files)
+        next_gif = self.all_gif_files[self.current_gif_index]
+        
+        print(f"🔄 Switching to next GIF: {next_gif}")
+        success = self._load_gif_from_file(next_gif)
+        if success:
+            print(f"✅ Successfully switched to {next_gif}")
+            self.current_gif_frame = 0  # Reset frame counter
+            self.last_gif_switch_time = time.time()
+        else:
+            print(f"❌ Failed to switch to {next_gif}, keeping current GIF")
+    
+    def _check_and_switch_gif(self):
+        """Check if it's time to switch to the next GIF (every 15 seconds)."""
+        current_time = time.time()
+        if current_time - self.last_gif_switch_time >= 15.0:  # 15 seconds
+            self._switch_to_next_gif()
 
 def main():
     """Main function."""
