@@ -286,12 +286,20 @@ class SpotiPiEnhanced:
                             # Track is still playing, just wait
                             time.sleep(2)
                 else:
-                    # No track playing, show idle state
+                    # No track playing, show continuous idle animation
                     if self.current_track_id is not None:
-                        print("⏸️  No track detected, switching to idle...")
+                        print("⏸️  No track detected, switching to idle animation...")
                         self.current_track_id = None
-                    self._handle_no_track()
-                    time.sleep(2)
+                    
+                    # Continuous idle animation loop
+                    for frame in range(50):  # 50 frames = 5 seconds of animation
+                        if not self.running:
+                            break
+                        idle_image = self._create_cool_idle_animation()
+                        self.matrix_display.display_image(idle_image, 0.1)
+                    
+                    # Check for track changes after animation cycle
+                    time.sleep(0.1)
                     
             except KeyboardInterrupt:
                 break
