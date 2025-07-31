@@ -2,7 +2,7 @@
 """
 SpotiPi Enhanced Mode
 
-Displays album art with enhanced visual effects when Spotify tracks are played.
+Simple and stable album art display for Spotify.
 """
 
 import time
@@ -27,7 +27,6 @@ class SpotiPiEnhanced:
         self.image_processor = None
         self.matrix_display = None
         self.current_track_id = None
-        self.last_update_time = 0
         
         # Setup signal handlers
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -63,7 +62,7 @@ class SpotiPiEnhanced:
             return False
     
     def process_album_art(self, image_url):
-        """Process album art for display with enhancements."""
+        """Process album art for display."""
         try:
             # Download image
             response = requests.get(image_url, timeout=10)
@@ -76,7 +75,7 @@ class SpotiPiEnhanced:
             if img.mode != 'RGB':
                 img = img.convert('RGB')
             
-            # Apply enhancements
+            # Apply basic enhancements
             img = self._apply_enhancements(img)
             
             # Resize to 64x64
@@ -92,23 +91,19 @@ class SpotiPiEnhanced:
             return self._create_placeholder()
     
     def _apply_enhancements(self, img):
-        """Apply image enhancements for better display."""
+        """Apply basic image enhancements."""
         try:
-            # Increase contrast
+            # Moderate contrast increase
             enhancer = ImageEnhance.Contrast(img)
-            img = enhancer.enhance(1.3)
+            img = enhancer.enhance(1.2)
             
-            # Increase saturation
+            # Moderate saturation increase
             enhancer = ImageEnhance.Color(img)
-            img = enhancer.enhance(1.4)
+            img = enhancer.enhance(1.3)
             
             # Slight brightness increase
             enhancer = ImageEnhance.Brightness(img)
             img = enhancer.enhance(1.1)
-            
-            # Add sharpening
-            enhancer = ImageEnhance.Sharpness(img)
-            img = enhancer.enhance(1.2)
             
             return img
         except Exception as e:
@@ -119,7 +114,7 @@ class SpotiPiEnhanced:
         """Create a placeholder image."""
         image = np.zeros((64, 64, 3), dtype=np.uint8)
         
-        # Create a gradient pattern
+        # Simple gradient pattern
         for y in range(64):
             for x in range(64):
                 r = int(64 + 64 * (x / 64))
@@ -130,13 +125,13 @@ class SpotiPiEnhanced:
         return image
     
     def _create_idle_pattern(self):
-        """Create an animated idle pattern."""
+        """Create an idle pattern."""
         image = np.zeros((64, 64, 3), dtype=np.uint8)
         current_time = time.time()
         
         for y in range(64):
             for x in range(64):
-                # Create wave pattern
+                # Simple wave pattern
                 wave = np.sin(x * 0.1 + current_time * 0.5) * np.cos(y * 0.1 + current_time * 0.3)
                 intensity = int(64 + 64 * wave)
                 
@@ -157,7 +152,6 @@ class SpotiPiEnhanced:
         self.running = True
         print("🎵 SpotiPi Enhanced is running!")
         print("📺 Monitoring Spotify playback...")
-        print("⏸️  Will display album art when you play/pause songs!")
         print()
         
         # Show initial idle pattern
@@ -170,7 +164,7 @@ class SpotiPiEnhanced:
                 track_info = self.spotify_client.get_current_track()
                 
                 if track_info:
-                    # Check if track changed or playback state changed
+                    # Check if track changed
                     if isinstance(track_info, dict) and self.spotify_client.has_track_changed(track_info):
                         self._handle_track_change(track_info)
                     else:
@@ -179,7 +173,7 @@ class SpotiPiEnhanced:
                         idle_image = self._create_idle_pattern()
                         self.matrix_display.display_image(idle_image, 0.1)
                 else:
-                    # No track playing - show idle pattern
+                    # No track playing
                     time.sleep(2)
                     idle_image = self._create_idle_pattern()
                     self.matrix_display.display_image(idle_image, 0.1)
@@ -193,29 +187,26 @@ class SpotiPiEnhanced:
         self.stop()
     
     def _handle_track_change(self, track_info):
-        """Handle track changes and playback state changes."""
+        """Handle track changes."""
         try:
             track_id = track_info.get('id')
             track_name = track_info.get('name', 'Unknown')
             artist_name = track_info.get('artist', 'Unknown')
             album_art_url = track_info.get('album_art_url')
-            is_playing = track_info.get('is_playing', False)
             
-            print(f"🎵 Track: {track_name} by {artist_name}")
-            print(f"▶️  Playing: {is_playing}")
+            print(f"🎵 Now playing: {track_name} by {artist_name}")
             
             if album_art_url:
                 print("🖼️  Processing album art...")
                 processed_image = self.process_album_art(album_art_url)
                 self.matrix_display.display_image(processed_image, 0.1)
-                print("✅ Enhanced album art displayed!")
+                print("✅ Album art displayed!")
             else:
                 print("⚠️  No album art available")
                 placeholder = self._create_placeholder()
                 self.matrix_display.display_image(placeholder, 0.1)
             
             self.current_track_id = track_id
-            self.last_update_time = time.time()
             
         except Exception as e:
             print(f"❌ Error handling track change: {e}")
@@ -239,8 +230,7 @@ def main():
     """Main function."""
     print("🎵 SpotiPi Enhanced Mode")
     print("=" * 30)
-    print("Enhanced album art display for Spotify!")
-    print("Play/pause songs to see album art on your matrix!")
+    print("Simple and stable album art display")
     print()
     
     app = SpotiPiEnhanced()
