@@ -414,6 +414,9 @@ class SpotiPiEnhanced:
         try:
             # Try multiple possible file names for the Sad Girl Sadness GIF
             possible_gif_paths = [
+                "Sad Girl Sadness GIF.gif",
+                "Sad Girl Sadness GIF.GIF",
+                "sad girl sadness gif.gif",
                 "Sad Girl Sadness.gif",
                 "Sad Girl Sadness.GIF",
                 "sad girl sadness.gif",
