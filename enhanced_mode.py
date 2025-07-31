@@ -108,7 +108,7 @@ class SpotiPiEnhanced:
         """Apply image enhancements."""
         # Increase contrast
         enhancer = ImageEnhance.Contrast(img)
-        img = enhancer.enhance(1.3)
+        img = enhancer.enhance(1.0)
         
         # Increase saturation
         enhancer = ImageEnhance.Color(img)
@@ -120,7 +120,7 @@ class SpotiPiEnhanced:
         
         # Apply sharpening
         enhancer = ImageEnhance.Sharpness(img)
-        img = enhancer.enhance(1.2)
+        img = enhancer.enhance(2.0)
         
         return img
     
