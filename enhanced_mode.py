@@ -116,7 +116,7 @@ class SpotiPiEnhanced:
         
         # Increase brightness slightly
         enhancer = ImageEnhance.Brightness(img)
-        img = enhancer.enhance(1.1)
+        img = enhancer.enhance(0.5)
         
         # Apply sharpening
         enhancer = ImageEnhance.Sharpness(img)
