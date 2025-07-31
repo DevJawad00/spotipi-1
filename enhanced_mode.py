@@ -340,9 +340,7 @@ class SpotiPiEnhanced:
     def _handle_no_track(self):
         """Handle when no track is playing or track is paused."""
         print("⏸️  No track currently playing or paused")
-        # Show a really cool animated pattern
-        idle_image = self._create_cool_idle_animation()
-        self.matrix_display.display_image(idle_image, 0.1)
+        # Animation is now handled in the main loop
     
     def _create_cool_idle_animation(self):
         """Create a spinning square animation with colors."""
