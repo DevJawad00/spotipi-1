@@ -28,6 +28,7 @@ class SpotiPiEnhanced:
         self.image_processor = None
         self.matrix_display = None
         self.current_track_id = None
+        self.last_playback_state = None  # Track if playing/paused
         
         # Setup signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -219,6 +220,25 @@ class SpotiPiEnhanced:
         
         return image
     
+    def _has_playback_state_changed(self, track_info):
+        """Check if playback state (playing/paused) has changed."""
+        if not track_info:
+            return False
+        
+        current_playing = track_info.get('is_playing', False)
+        
+        # If this is the first check, just store the state
+        if self.last_playback_state is None:
+            self.last_playback_state = current_playing
+            return False
+        
+        # Check if state changed
+        if current_playing != self.last_playback_state:
+            self.last_playback_state = current_playing
+            return True
+        
+        return False
+    
     def run(self):
         """Main application loop."""
         if not self.initialize():
@@ -227,6 +247,7 @@ class SpotiPiEnhanced:
         self.running = True
         print("🎵 SpotiPi Enhanced is running! Press Ctrl+C to stop.")
         print("📺 Monitoring Spotify playback...")
+        print("⏸️  Will detect play/pause and track changes!")
         print()
         
         # Display startup animation
@@ -238,16 +259,19 @@ class SpotiPiEnhanced:
                 track_info = self.spotify_client.get_current_track()
                 
                 if track_info:
-                    # Check if track has changed
-                    if isinstance(track_info, dict) and self.spotify_client.has_track_changed(track_info):
+                    # Check if track has changed OR playback state has changed
+                    track_changed = isinstance(track_info, dict) and self.spotify_client.has_track_changed(track_info)
+                    playback_changed = self._has_playback_state_changed(track_info)
+                    
+                    if track_changed or playback_changed:
                         self._handle_track_change(track_info)
                     else:
                         # Track is still playing, just wait
-                        time.sleep(5)
+                        time.sleep(2)
                 else:
                     # No track playing, show idle state
                     self._handle_no_track()
-                    time.sleep(5)
+                    time.sleep(2)
                     
             except KeyboardInterrupt:
                 break
@@ -258,19 +282,24 @@ class SpotiPiEnhanced:
         self.stop()
     
     def _handle_track_change(self, track_info):
-        """Handle when a track changes."""
+        """Handle when a track changes or playback state changes."""
         track_id = track_info.get('id') if track_info else None
         track_name = track_info.get('name', 'Unknown') if track_info else 'Unknown'
         artist_name = track_info.get('artist', 'Unknown') if track_info else 'Unknown'
         album_art_url = track_info.get('album_art_url') if track_info else None
+        is_playing = track_info.get('is_playing', False) if track_info else False
         
-        print(f"🎵 Now playing: {track_name} by {artist_name}")
+        print(f"🎵 Track: {track_name} by {artist_name}")
+        print(f"▶️  Playing: {is_playing}")
         
-        if album_art_url:
+        if is_playing and album_art_url:
             print("🖼️  Creating enhanced album art...")
             enhanced_image = self.create_enhanced_image(album_art_url)
             self.matrix_display.display_image(enhanced_image, 0.1)
             print("✅ Enhanced album art displayed!")
+        elif not is_playing:
+            print("⏸️  Track paused, showing idle pattern...")
+            self._handle_no_track()
         else:
             print("⚠️  No album art available")
             placeholder = self._create_placeholder_image()
@@ -279,16 +308,19 @@ class SpotiPiEnhanced:
         self.current_track_id = track_id
     
     def _handle_no_track(self):
-        """Handle when no track is playing."""
-        print("⏸️  No track currently playing")
+        """Handle when no track is playing or track is paused."""
+        print("⏸️  No track currently playing or paused")
         # Show a beautiful idle pattern
         idle_image = np.zeros((64, 64, 3), dtype=np.uint8)
+        current_time = time.time()
+        
         for y in range(64):
             for x in range(64):
                 # Create a smooth wave pattern
-                wave = np.sin(x * 0.2 + time.time()) * np.cos(y * 0.2 + time.time())
+                wave = np.sin(x * 0.2 + current_time * 0.5) * np.cos(y * 0.2 + current_time * 0.3)
                 intensity = int(128 + 127 * wave)
                 idle_image[y, x] = [0, intensity, intensity]  # Cyan wave
+        
         self.matrix_display.display_image(idle_image, 0.1)
     
     def _display_startup_animation(self):
@@ -347,6 +379,7 @@ def main():
     print("🎵 SpotiPi Enhanced Mode")
     print("=" * 30)
     print("This will display album art with enhanced visual effects!")
+    print("Detects play/pause and track changes!")
     print()
     
     app = SpotiPiEnhanced()
