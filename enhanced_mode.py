@@ -12,7 +12,7 @@ import os
 import numpy as np
 from datetime import datetime
 import requests
-from PIL import Image, ImageEnhance
+from PIL import Image, ImageEnhance, ImageSequence
 import io
 
 # Import our modules
@@ -29,6 +29,8 @@ class SpotiPiEnhanced:
         self.matrix_display = None
         self.current_track_id = None
         self.last_playback_state = None  # Track if playing/paused
+        self.idle_gif_frames = []  # Store GIF frames for idle animation
+        self.current_gif_frame = 0  # Current frame index
         
         # Setup signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -55,6 +57,10 @@ class SpotiPiEnhanced:
             # Initialize matrix display
             print("📺 Initializing RGB matrix...")
             self.matrix_display = MatrixDisplay()
+            
+            # Load idle GIF animation
+            print("🎬 Loading idle GIF animation...")
+            self._load_idle_gif()
             
             print("✅ SpotiPi Enhanced initialized successfully!")
             return True
@@ -295,8 +301,13 @@ class SpotiPiEnhanced:
                     for frame in range(100):  # 100 frames = 5 seconds of animation
                         if not self.running:
                             break
-                        idle_image = self._create_cool_idle_animation()
-                        self.matrix_display.display_image(idle_image, 0.05)  # 20 FPS for smoother animation
+                        gif_frame = self._get_next_gif_frame()
+                        if gif_frame is not None:
+                            self.matrix_display.display_image(gif_frame, 0.05)  # 20 FPS for smooth GIF playback
+                        else:
+                            # Fallback to placeholder if GIF fails
+                            placeholder = self._create_placeholder_image()
+                            self.matrix_display.display_image(placeholder, 0.05)
                     
                     # Check for track changes after animation cycle
                     time.sleep(0.05)
@@ -343,99 +354,9 @@ class SpotiPiEnhanced:
         # Animation is now handled in the main loop
     
     def _create_cool_idle_animation(self):
-        """Create a fast and smooth spinning square animation with enhanced effects."""
-        image = np.zeros((64, 64, 3), dtype=np.uint8)
-        current_time = time.time()
-        
-        # Enhanced square properties
-        center_x, center_y = 32, 32
-        square_size = 18
-        rotation_speed = 4.0  # Much faster rotation
-        
-        # Calculate rotation angle
-        angle = current_time * rotation_speed
-        
-        # Create enhanced spinning square
-        for y in range(64):
-            for x in range(64):
-                # Calculate distance from center
-                dx = x - center_x
-                dy = y - center_y
-                
-                # Rotate the point
-                cos_a = np.cos(angle)
-                sin_a = np.sin(angle)
-                rotated_x = dx * cos_a - dy * sin_a
-                rotated_y = dx * sin_a + dy * cos_a
-                
-                # Check if point is inside the square
-                if abs(rotated_x) <= square_size and abs(rotated_y) <= square_size:
-                    # Enhanced color system with faster transitions
-                    color_phase = (current_time * 2.0) % 8  # 8 colors, faster transitions
-                    
-                    # Calculate intensity with enhanced gradient
-                    distance = np.sqrt(rotated_x**2 + rotated_y**2)
-                    max_distance = square_size * np.sqrt(2)
-                    intensity = int(255 * (1 - (distance / max_distance) ** 1.5))  # Sharper falloff
-                    
-                    # Enhanced color scheme with more vibrant colors
-                    if color_phase < 1:  # Bright Red
-                        r, g, b = intensity, 0, 0
-                    elif color_phase < 2:  # Bright Orange
-                        r, g, b = intensity, int(intensity * 0.7), 0
-                    elif color_phase < 3:  # Bright Yellow
-                        r, g, b = intensity, intensity, 0
-                    elif color_phase < 4:  # Bright Green
-                        r, g, b = 0, intensity, 0
-                    elif color_phase < 5:  # Bright Cyan
-                        r, g, b = 0, intensity, intensity
-                    elif color_phase < 6:  # Bright Blue
-                        r, g, b = 0, 0, intensity
-                    elif color_phase < 7:  # Bright Magenta
-                        r, g, b = intensity, 0, intensity
-                    else:  # Bright White
-                        r, g, b = intensity, intensity, intensity
-                    
-                    # Add pulsing effect
-                    pulse = np.sin(current_time * 6) * 0.3 + 0.7
-                    r = int(r * pulse)
-                    g = int(g * pulse)
-                    b = int(b * pulse)
-                    
-                    # Add position-based brightness variation
-                    variation = np.sin(rotated_x * 0.3 + current_time * 3) * np.cos(rotated_y * 0.3 + current_time * 2.5)
-                    brightness = 0.9 + 0.1 * variation
-                    
-                    r = int(r * brightness)
-                    g = int(g * brightness)
-                    b = int(b * brightness)
-                    
-                    # Add edge glow effect
-                    edge_distance = min(abs(rotated_x - square_size), abs(rotated_y - square_size))
-                    if edge_distance < 3:
-                        glow = (3 - edge_distance) / 3
-                        r = min(255, int(r + 50 * glow))
-                        g = min(255, int(g + 50 * glow))
-                        b = min(255, int(b + 50 * glow))
-                    
-                    image[y, x] = [r, g, b]
-                else:
-                    # Enhanced animated background
-                    bg_wave1 = np.sin(x * 0.2 + current_time * 1.5) * np.cos(y * 0.2 + current_time * 1.2)
-                    bg_wave2 = np.sin((x + y) * 0.1 + current_time * 0.8)
-                    bg_combined = (bg_wave1 + bg_wave2) / 2
-                    bg_intensity = int(20 + 15 * bg_combined)
-                    
-                    # Subtle color variation in background
-                    bg_color_phase = (current_time * 0.5) % 3
-                    if bg_color_phase < 1:
-                        image[y, x] = [bg_intensity//3, bg_intensity//6, bg_intensity//2]
-                    elif bg_color_phase < 2:
-                        image[y, x] = [bg_intensity//4, bg_intensity//3, bg_intensity//6]
-                    else:
-                        image[y, x] = [bg_intensity//2, bg_intensity//4, bg_intensity//3]
-        
-        return image
+        """Create a simple placeholder animation (replaced by GIF)."""
+        # This method is kept for compatibility but now uses GIF frames
+        return self._get_next_gif_frame() or self._create_placeholder_image()
     
     def _display_startup_animation(self):
         """Display startup animation."""
@@ -487,6 +408,130 @@ class SpotiPiEnhanced:
             self.matrix_display.clear_display()
         
         print("✅ SpotiPi Enhanced stopped.")
+
+    def _load_idle_gif(self):
+        """Load and prepare the idle GIF animation."""
+        try:
+            # Try to load an actual GIF file first
+            gif_path = "idle_animation.gif"
+            if os.path.exists(gif_path):
+                print(f"📁 Loading GIF from file: {gif_path}")
+                return self._load_gif_from_file(gif_path)
+            else:
+                print("🎨 Creating programmatic GIF animation...")
+                return self._create_programmatic_gif()
+            
+        except Exception as e:
+            print(f"❌ Error loading idle GIF: {e}")
+            return False
+    
+    def _load_gif_from_file(self, gif_path):
+        """Load GIF frames from a file."""
+        try:
+            with Image.open(gif_path) as gif:
+                frames = []
+                for frame in ImageSequence.Iterator(gif):
+                    # Convert to RGB if needed
+                    if frame.mode != 'RGB':
+                        frame = frame.convert('RGB')
+                    
+                    # Resize to 64x64
+                    frame = frame.resize((64, 64), Image.LANCZOS)
+                    
+                    # Convert to numpy array
+                    frame_array = np.array(frame, dtype=np.uint8)
+                    frames.append(frame_array)
+                
+                self.idle_gif_frames = frames
+                print(f"✅ Loaded GIF file with {len(self.idle_gif_frames)} frames")
+                return True
+                
+        except Exception as e:
+            print(f"❌ Error loading GIF file: {e}")
+            return False
+    
+    def _create_programmatic_gif(self):
+        """Create a programmatic GIF animation."""
+        # Create a simple animated GIF programmatically
+        # This creates a spinning rainbow square GIF
+        frames = []
+        num_frames = 30  # 30 frames for smooth animation
+        
+        for i in range(num_frames):
+            # Create a frame
+            frame = Image.new('RGB', (64, 64), (0, 0, 0))
+            
+            # Calculate rotation angle
+            angle = (i * 12) % 360  # 12 degrees per frame
+            
+            # Create a square with rainbow colors
+            square_size = 20
+            center_x, center_y = 32, 32
+            
+            # Create the square pixels
+            for y in range(64):
+                for x in range(64):
+                    # Calculate distance from center
+                    dx = x - center_x
+                    dy = y - center_y
+                    
+                    # Rotate the point
+                    cos_a = np.cos(np.radians(angle))
+                    sin_a = np.sin(np.radians(angle))
+                    rotated_x = dx * cos_a - dy * sin_a
+                    rotated_y = dx * sin_a + dy * cos_a
+                    
+                    # Check if point is inside the square
+                    if abs(rotated_x) <= square_size and abs(rotated_y) <= square_size:
+                        # Create rainbow color based on position and frame
+                        color_phase = (i * 12) % 360
+                        hue = (color_phase + (x + y) * 2) % 360
+                        
+                        # Convert HSV to RGB
+                        if hue < 60:
+                            r, g, b = 255, int(255 * hue / 60), 0
+                        elif hue < 120:
+                            r, g, b = int(255 * (120 - hue) / 60), 255, 0
+                        elif hue < 180:
+                            r, g, b = 0, 255, int(255 * (hue - 120) / 60)
+                        elif hue < 240:
+                            r, g, b = 0, int(255 * (240 - hue) / 60), 255
+                        elif hue < 300:
+                            r, g, b = int(255 * (hue - 240) / 60), 0, 255
+                        else:
+                            r, g, b = 255, 0, int(255 * (360 - hue) / 60)
+                        
+                        # Add some brightness variation
+                        brightness = 0.8 + 0.2 * np.sin(i * 0.5)
+                        r = int(r * brightness)
+                        g = int(g * brightness)
+                        b = int(b * brightness)
+                        
+                        frame.putpixel((x, y), (r, g, b))
+                    else:
+                        # Background - subtle animated pattern
+                        bg_intensity = int(20 + 10 * np.sin(x * 0.2 + i * 0.3))
+                        frame.putpixel((x, y), (bg_intensity//3, bg_intensity//6, bg_intensity//2))
+            
+            frames.append(frame)
+        
+        # Convert frames to numpy arrays
+        self.idle_gif_frames = []
+        for frame in frames:
+            frame_array = np.array(frame, dtype=np.uint8)
+            self.idle_gif_frames.append(frame_array)
+        
+        print(f"✅ Created programmatic GIF with {len(self.idle_gif_frames)} frames")
+        return True
+
+    def _get_next_gif_frame(self):
+        """Get the next frame from the idle GIF animation."""
+        if not self.idle_gif_frames:
+            return None
+        
+        frame = self.idle_gif_frames[self.current_gif_frame]
+        self.current_gif_frame = (self.current_gif_frame + 1) % len(self.idle_gif_frames)
+        return frame
 
 def main():
     """Main function."""
